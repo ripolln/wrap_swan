@@ -37,12 +37,12 @@ Modules included
 
 ## Jupyter Book
 
-https://geoocean.gitlab.io/bluemath/numerical-model-wrappers/wrap\_swan/book/intro.html
+https://geoocean.gitlab.io/bluemath/numerical-model-wrappers/wrap_swan/book/intro.html
 
 ## Install
 - - -
 
-The source code is currently hosted on GitLab at: https://gitlab.com/geoocean/bluemath/numerical-models-wrappers/wrap\_swan
+The source code is currently hosted on GitLab at: https://gitlab.com/geoocean/bluemath/numerical-models-wrappers/wrap_swan
 
 This toolbox has been developed with Python 3.7.10
 
@@ -84,8 +84,8 @@ Copy SWAN binary file to module resources
   # Launch a python interpreter
   $ python
 
-  Python 3.6.9 (default, Apr 18 2020, 01:56:04) 
-  [GCC 8.4.0] on linux
+  Python 3.7.10 (default, Feb 27 2021, 02:19:57) 
+  [Clang 12.0.0 (clang-1200.0.32.29)] on darwin
   Type "help", "copyright", "credits" or "license" for more information.
   
   >>> import wswan 
