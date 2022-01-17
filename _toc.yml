@@ -1,0 +1,20 @@
+# Table of content
+format: jb-book
+root: book/intro.md
+options:
+  numbered: false
+parts:
+  - caption: Examples
+    numbered: true
+    chapters: 
+      - file: book/examples.md
+        sections:
+        - file: notebooks/nb_nonstat_vortex.ipynb
+  - caption: Reference
+    chapters: 
+      - file: book/modules.md
+      - file: book/bibliography.md
+  - caption: Development
+    chapters: 
+      - file: book/repository.md
+
