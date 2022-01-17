@@ -37,7 +37,7 @@ Modules included
 
 ## Jupyter Book
 
-https://geoocean.gitlab.io/bluemath/numerical-model-wrappers/wrap_swan/book/intro.html
+https://geoocean.gitlab.io/bluemath/numerical-models-wrappers/wrap_swan/book/intro.html
 
 ## Install
 - - -
