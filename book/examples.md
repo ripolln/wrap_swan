@@ -1,4 +1,4 @@
-# Examples 
+# Notebooks 
 
-SWAN wrapper examples
+SWAN wrapper examples notebooks
 
