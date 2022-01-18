@@ -1,4 +1,4 @@
-# WSWAN 
+# wrap SWAN 
 
 SWAN numerical model python wrapper
 
