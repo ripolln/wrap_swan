@@ -654,7 +654,7 @@ def plot_case_output(
     # load output
     xds_out = swan_wrap.extract_output(
         case_ini=case, case_end=case+1,
-        mesh=mesh,
+        mesh=mesh, concat=False,
     )[0]
 
     # select time to plot
@@ -754,7 +754,7 @@ def plot_case_output_grafiti(
     # load output
     xds_out = swan_wrap.extract_output(
         case_ini=case, case_end=case+1,
-        mesh=mesh,
+        mesh=mesh, concat=False,
     )[0]
 
     # figure
