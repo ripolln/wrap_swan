@@ -46,7 +46,7 @@ setup(
     python_requires  = ">=3.7.10",
     install_requires = install_requires(),
     include_package_data = True,
-    packages         = ['wswan'],
+    packages         = ['wswan', 'wswan.plots'],
     package_data     = {'wswan' : ['wswan/resources/*',
                                    'wswan/resources/swan_bin/*']},
     scripts          = [],
