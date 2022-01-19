@@ -99,7 +99,7 @@ Copy SWAN binary file to module resources
 - [demo 02 - NON-STATIONARY](./scripts/demo_02_nonstat.py): non-stationary example
 - [demo 03 - VORTEX PARAMETERS](./scripts/demo_03_nonstat_vortex_params.py): non-stationary with TCs Vortex Model example (from parameters)
 - [demo 04 - VORTEX HISTORICAL](./scripts/demo_04_nonstat_vortex_hist.py): non-stationary with TCs Vortex Model example (historical track interpolation)
-- [notebook - SWAN Vortex Historical](./notebooks/nb_02_VORTEX_NONSTAT.ipynb): non-stationary storm Vortex model simulation from historical storm track
+- [notebook - SWAN Vortex Historical](./notebooks/nb_nonstat_vortex.ipynb): non-stationary storm Vortex model simulation from historical storm track
 
 ## Contributors:
 
