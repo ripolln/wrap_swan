@@ -516,7 +516,7 @@ class SwanIO_NONSTAT(SwanIO):
         for i in bnd:
             su.copyfile(save, op.join(p_case, 'series_waves_{0}.dat'.format(i)))
 
-    def make_wind_files(self, p_case, waves_event, mesh):
+    def make_wind_files_uniform(self, p_case, waves_event, mesh):
         '''
         Generate event wind mesh files (swan compatible)
 
@@ -543,6 +543,38 @@ class SwanIO_NONSTAT(SwanIO):
             # csv file 
             u_2d = aux * u
             v_2d = aux * v
+            u_v_stack = np.vstack((u_2d, v_2d))
+            save = op.join(p_case, '{0}_{1:06}.dat'.format(code, c))
+            np.savetxt(save, u_v_stack, fmt='%.2f')
+
+            # wind list file
+            txt += '{0}_{1:06}.dat\n'.format(code, c)
+
+        # winds file path
+        save = op.join(p_case, 'series_{0}.dat'.format(code))
+        with open(save, 'w') as f:
+            f.write(txt)
+
+    def make_wind_files_custom(self, p_case, wind_2d, mesh):
+        '''
+        Generate event wind mesh files (swan compatible)
+
+        uses user given wind 2d configuration
+        (xarray.Dataset vars: U10, V10. coords: x, y, time)
+        '''
+
+        # wind code
+        code = 'wind_{0}'.format(mesh.ID)
+
+        txt = ''
+        for c, _ in enumerate(wind_2d.time):
+
+            # TODO: wind has to be rotated if alpc != 0
+
+            # csv file
+            u_2d = wind_2d.isel(time=c).U10.values[:] 
+            v_2d =  wind_2d.isel(time=c).V10.values[:]
+
             u_v_stack = np.vstack((u_2d, v_2d))
             save = op.join(p_case, '{0}_{1:06}.dat'.format(code, c))
             np.savetxt(save, u_v_stack, fmt='%.2f')
@@ -785,7 +817,7 @@ class SwanIO_NONSTAT(SwanIO):
         with open(p_file, 'w') as f:
             f.write(t)
 
-    def build_case(self, case_id, waves_event, storm_track=None,
+    def build_case(self, case_id, waves_event, storm_track=None, wind_2d=None,
                    make_waves=True, make_winds=True, make_levels=True,
                    waves_bnd=['N', 'E', 'W', 'S']):
         '''
@@ -800,6 +832,10 @@ class SwanIO_NONSTAT(SwanIO):
         storm_track - None / storm track time series (pandas.Dataframe)
         storm_track generated winds have priority over waves_event winds
         [n x 6] (move, vf, lon, lat, pn, p0)
+
+        wind_2d - list of 2D winds (xarray.Dataset)
+        wind_2d have priority over waves_event winds
+        dims: x, y, time. vars: U10, V10
         '''
 
         # parse pandas time index to swan iso format
@@ -826,7 +862,7 @@ class SwanIO_NONSTAT(SwanIO):
         # make wind files
         if make_winds:
 
-            # vortex model from storm tracks  //  meshgrind wind
+            # vortex model from storm tracks  //  meshgrid wind
             if isinstance(storm_track, pd.DataFrame):
                 self.make_vortex_files(p_case, case_id, self.proj.mesh_main, storm_track)
 
@@ -836,8 +872,14 @@ class SwanIO_NONSTAT(SwanIO):
                     wind_deltinp = storm_track.attrs['override_dtcomp']
                     print('CASE {0} - compute_deltc, wind_deltinp override with storm track: {1}'.format(
                         case_id, compute_deltc))
+
+            # 2d winds given by user
+            elif isinstance(wind_2d, xr.Dataset):
+                self.make_wind_files_custom(p_case, wind_2d, self.proj.mesh_main)
+
+            # extrapolate waves event U10, V10 to entire mesh
             else:
-                self.make_wind_files(p_case, waves_event, self.proj.mesh_main)
+                self.make_wind_files_uniform(p_case, waves_event, self.proj.mesh_main)
 
         # make output points file
         self.make_out_points(op.join(p_case, 'points_out.dat'))
@@ -870,8 +912,12 @@ class SwanIO_NONSTAT(SwanIO):
                 # vortex model from storm tracks  //  meshgrind wind
                 if isinstance(storm_track, pd.DataFrame):
                     self.make_vortex_files(p_case, case_id, mesh_n, storm_track)
+                # 2d winds given by user
+                elif isinstance(wind_2d, xr.Dataset):
+                    # TODO: esto no funcionara, necesario definir el viento en anidada
+                    self.make_wind_files_custom(p_case, wind_2d, self.proj.mesh_main)
                 else:
-                    self.make_wind_files(p_case, waves_event, mesh_n)
+                    self.make_wind_files_uniform(p_case, waves_event, mesh_n)
 
             # make input_nestX.swn file
             self.make_input(

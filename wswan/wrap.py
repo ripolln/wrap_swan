@@ -418,7 +418,9 @@ class SwanWrap_NONSTAT(SwanWrap):
     def __init__(self, swan_proj):
         super().__init__(swan_proj, SwanIO_NONSTAT)
 
-    def build_cases(self, waves_event_list, storm_track_list=None,
+    def build_cases(self, waves_event_list,
+                    storm_track_list=None,
+                    wind_2d_list=None,
                     make_waves=True, make_winds=True, make_levels=True):
         '''
         generates all files needed for swan non-stationary multi-case execution
@@ -430,23 +432,31 @@ class SwanWrap_NONSTAT(SwanWrap):
         storm_track_list - list of storm tracks time series (pandas.DataFrame)
         storm_track generated winds have priority over waves_event winds
         [n x 6] (move, vf, lon, lat, pn, p0)
+
+        wind_2d_list - list of 2D winds (xarray.Dataset)
+        wind_2d have priority over waves_event winds
+        dims: x, y, time. vars: U10, V10
         '''
 
         # check user input: no storm tracks
         if storm_track_list == None:
             storm_track_list = [None] * len(waves_event_list)
 
+        # check user input: no 2D winds 
+        if wind_2d_list == None:
+            wind_2d_list = [None] * len(waves_event_list)
+
         # make main project directory
         self.io.make_project()
 
         # one non-stationary case for each wave time series
-        for ix, (wds, sds) in enumerate(
-            zip(waves_event_list, storm_track_list)):
+        for ix, (wds, sds, w2d) in enumerate(
+            zip(waves_event_list, storm_track_list, wind_2d_list)):
 
             # build stat case 
             case_id = '{0:04d}'.format(ix)
             self.io.build_case(
-                case_id, wds, storm_track=sds,
+                case_id, wds, storm_track=sds, wind_2d=w2d,
                 make_waves=make_waves, make_winds=make_winds,
                 make_levels=make_levels,
             )
