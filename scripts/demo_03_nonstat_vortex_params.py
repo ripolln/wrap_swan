@@ -16,7 +16,7 @@ sys.path.insert(0, op.join(op.dirname(__file__), '..'))
 
 # swan wrap module 
 from wswan.storms import track_site_parameters
-from wswan.wrap import SwanProject, SwanMesh, SwanWrap_NONSTAT
+from wswan.wrap import SwanProject, SwanMesh, SwanWrap_NONSTAT, SwanInput_NONSTAT
 
 
 
@@ -36,19 +36,12 @@ depth = xds_bathy.elevation.values[:] * -1  # elevation to depth
 
 
 # --------------------------------------
-# SWAN case input: waves_event (empty) + storm_track (from MDA parameters)
+# SWAN case input: storm_track (from MDA parameters)
 
 # time array for SWAN case input
 date_ini = '2000-01-02 00:00'
 hours = 6
 time = pd.date_range(date_ini, periods=hours, freq='H')
-
-
-# generate empty wave event
-we = pd.DataFrame(index=time, columns=['hs', 'per', 'dir', 'spr', 'U10', 'V10'])
-we['level'] = 0
-we['tide'] = 0
-
 
 # generate storm track from MDA parameters 
 pmin = 924.9709      # center pressure 
@@ -71,11 +64,18 @@ print('\ninput storm track')
 print(st)
 
 
+# set case input
+si = SwanInput_NONSTAT()
+
+si.wind_mode = 'storm'
+si.wind_series = st
+
+
 # --------------------------------------
 # SWAN project (config bathymetry, parameters, computational grid)
 
 p_proj = op.join(p_data, 'projects')  # swan projects main directory
-n_proj = '03_vortex'                  # project name
+n_proj = '03_vx_params'               # project name
 
 sp = SwanProject(p_proj, n_proj)
 
@@ -167,7 +167,7 @@ sp.set_params(input_params)
 sw = SwanWrap_NONSTAT(sp)
 
 # build non-stationary cases from wave_events list and storm_tracks list
-sw.build_cases([we], storm_track_list=[st], make_waves=False)
+sw.build_cases([si])
 
 # run SWAN
 sw.run_cases()

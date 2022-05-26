@@ -14,7 +14,7 @@ import xarray as xr
 sys.path.insert(0, op.join(op.dirname(__file__), '..'))
 
 # swan wrap module
-from wswan.wrap import SwanProject, SwanMesh, SwanWrap_NONSTAT
+from wswan.wrap import SwanProject, SwanMesh, SwanWrap_NONSTAT, SwanInput_NONSTAT
 
 
 # --------------------------------------
@@ -27,27 +27,56 @@ p_waves_demo = op.join(p_demo, 'waves_csiro_demo.nc')
 
 
 # --------------------------------------
-# SWAN case input: waves_event 
+# SWAN case input:
 
-# non-stationary case requires a wave_event (dim: time). variables:
-# time
-# waves: hs, t02, dir, spr
+# waves event: hs, t02, dir, spr
+# water level: level, tide
+# wind: U10, V10
+
+# load csiro point dataset
+xds_csiro = xr.open_dataset(p_waves_demo)
+xds_csiro = xds_csiro.squeeze()         # remove lon,lat dim (len=1)
+point_csiro = xds_csiro.to_dataframe()  # xarray --> pandas
+
+# wave event 
+vs = ['hs', 't02', 'dir', 'spr']
+waves_event = point_csiro['2000-01-02 00:00':'2000-01-02 03:00'][vs]
+waves_event.rename(columns={'t02': 'per'}, inplace=True)  # rename for swan
+
+print('\ninput waves event')
+print(waves_event)
+
+# water level
+water_level = pd.DataFrame(index=waves_event.index)
+water_level['level'] = 0
+water_level['tide'] = 0
+
+print('\ninput water level and tide')
+print(water_level)
+
+
 # wind: U10, V10 (units_ m/s)
-# water level: level, tide     (not in csiro?)
+vs = ['U10', 'V10']
+wind_series = point_csiro['2000-01-02 00:00':'2000-01-02 03:00'][vs]
 
-xds_waves = xr.open_dataset(p_waves_demo)
-xds_waves = xds_waves.squeeze()   # remove lon,lat dim (len=1)
-waves = xds_waves.to_dataframe()  # xarray --> pandas
+print('\ninput wind series')
+print(wind_series)
 
-# now we generate the wave event 
-vs = ['hs', 't02', 'dir', 'spr', 'U10', 'V10']
-we = waves['2000-01-02 00:00':'2000-01-02 03:00'][vs]
-we['level'] = 0 # no water level data 
-we['tide'] = 0 # no tide data 
-we.rename(columns={'t02': 'per'}, inplace=True)  # rename for swan
 
-print('\ninput wave event')
-print(we)
+# --------------------------------------
+
+# set case input
+si = SwanInput_NONSTAT()
+
+si.waves_activate = True
+si.waves_series = waves_event
+
+si.level_activate = True
+si.level_series = water_level
+
+si.wind_mode = 'uniform'
+si.wind_series = wind_series
+
 
 
 # --------------------------------------
@@ -132,8 +161,8 @@ sp.set_nested_mesh_list([mesh_nest1])
 # --------------------------------------
 # SWAN parameters (sea level, jonswap gamma, ...)
 input_params = {
-    'set_level': 4,
-    'set_convention': 'NAUTICAL',
+    'set_level': 0,
+    'set_convention': 'CARTESIAN',
 
     'boundw_jonswap': 1.9,
     'boundw_period': 'MEAN',
@@ -152,7 +181,7 @@ input_params = {
     'output_variables': [
         'HSIGN', 'DIR', 'PDIR', 'TM02',
         'TPS', 'RTP', 'FSPR', 'DSPR',
-        'WIND', 'DEPTH', 'WATLEV', 'WIND',
+        'WIND', 'DEPTH', 'WATLEV',
         #'PTHSIGN', 'PTDIR', 'PTRTP', 'PTDSPR',
         'PTWFRAC', 'PTWLEN', 'PTSTEEP',
     ],
@@ -180,8 +209,8 @@ sp.set_params(input_params)
 
 sw = SwanWrap_NONSTAT(sp)
 
-# build non-stationary cases from wave_events list
-sw.build_cases([we], make_winds=True, make_levels=True)  # test one event
+# build non-stationary cases from SwanInput list
+sw.build_cases([si])  # test one event
 
 # run SWAN
 sw.run_cases()

@@ -95,10 +95,13 @@ Copy SWAN binary file to module resources
 ## Examples:
 - - -
 
-- [demo 01 - STATIONARY](./scripts/demo_01_stat.py): stationary example
-- [demo 02 - NON-STATIONARY](./scripts/demo_02_nonstat.py): non-stationary example
-- [demo 03 - VORTEX PARAMETERS](./scripts/demo_03_nonstat_vortex_params.py): non-stationary with TCs Vortex Model example (from parameters)
-- [demo 04 - VORTEX HISTORICAL](./scripts/demo_04_nonstat_vortex_hist.py): non-stationary with TCs Vortex Model example (historical track interpolation)
+- [demo 01 - stationary](./scripts/demo_01_stat.py): stationary example
+- [demo 02 - non-stationary](./scripts/demo_02_nonstat.py): non-stationary example
+- [demo 03 - Vortex model from parameters](./scripts/demo_03_nonstat_vortex_params.py): non-stationary with TCs Vortex Model example (from parameters)
+- [demo 04 - Vortex model from historical track](./scripts/demo_04_nonstat_vortex_hist.py): non-stationary with TCs Vortex Model example (historical track interpolation)
+- [demo 05 - non-stationary with uniform winds (cartesian)](./scripts/demo_05_nonstat_wind_xy.py): non-stationary with uniform winds (cartesian coordinates) 
+- [demo 06 - non-stationary with uniform winds (spherical)](./scripts/demo_06_nonstat_wind_lonlat.py): non-stationary with uniform winds (spherical coordinates) 
+- [demo 05 - non-stationary with customized 2D wind maps](./scripts/demo_07_nonstat_wind_2d.py): non-stationary with 2D wind maps as input 
 - [notebook - SWAN Vortex Historical](./notebooks/nb_nonstat_vortex.ipynb): non-stationary storm Vortex model simulation from historical storm track
 
 ## Contributors:

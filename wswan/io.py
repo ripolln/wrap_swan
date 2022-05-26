@@ -516,16 +516,16 @@ class SwanIO_NONSTAT(SwanIO):
         for i in bnd:
             su.copyfile(save, op.join(p_case, 'series_waves_{0}.dat'.format(i)))
 
-    def make_wind_files_uniform(self, p_case, waves_event, mesh):
+    def make_wind_files_uniform(self, p_case, wind_series, mesh):
         '''
         Generate event wind mesh files (swan compatible)
 
-        uses wave_event U10 and V10 values at the entire SWAN comp. grid
+        uses wind_series U10 and V10 values at the entire SWAN comp. grid
         '''
 
         # wind variables
-        u10 = waves_event.U10.values[:]
-        v10 = waves_event.V10.values[:]
+        u10 = wind_series.U10.values[:]
+        v10 = wind_series.V10.values[:]
 
         # each time needs 2D (mesh) wind files (U,V) 
         mxc = mesh.cg['mxc']  # number mesh x
@@ -536,13 +536,14 @@ class SwanIO_NONSTAT(SwanIO):
         for c, (u, v) in enumerate(zip(u10,v10)):
 
             # single point wind -> entire SWAN comp.grid wind
-            aux = np.ones((mxc, myc)).T
+            aux = np.ones((myc, mxc))
 
             # TODO: wind has to be rotated if alpc != 0
 
             # csv file 
             u_2d = aux * u
             v_2d = aux * v
+
             u_v_stack = np.vstack((u_2d, v_2d))
             save = op.join(p_case, '{0}_{1:06}.dat'.format(code, c))
             np.savetxt(save, u_v_stack, fmt='%.2f')
@@ -555,7 +556,7 @@ class SwanIO_NONSTAT(SwanIO):
         with open(save, 'w') as f:
             f.write(txt)
 
-    def make_wind_files_custom(self, p_case, wind_2d, mesh):
+    def make_wind_files_mesh(self, p_case, wind_2d, mesh):
         '''
         Generate event wind mesh files (swan compatible)
 
@@ -571,10 +572,11 @@ class SwanIO_NONSTAT(SwanIO):
 
             # TODO: wind has to be rotated if alpc != 0
 
-            # csv file
-            u_2d = wind_2d.isel(time=c).U10.values[:] 
-            v_2d =  wind_2d.isel(time=c).V10.values[:]
+            # get wind u and v data
+            u_2d = wind_2d.isel(time=c).U10.values[:]
+            v_2d = wind_2d.isel(time=c).V10.values[:]
 
+            # csv file
             u_v_stack = np.vstack((u_2d, v_2d))
             save = op.join(p_case, '{0}_{1:06}.dat'.format(code, c))
             np.savetxt(save, u_v_stack, fmt='%.2f')
@@ -592,6 +594,7 @@ class SwanIO_NONSTAT(SwanIO):
         Generate event vortex wind mesh files (swan compatible)
 
         mesh        - mesh (main or nested)
+        storm track - pandas.Dataframe: move, vf, vfx, vfy, pn, p0, lon, lat, vmax
         '''
 
         code = 'wind_{0}'.format(mesh.ID)
@@ -633,16 +636,16 @@ class SwanIO_NONSTAT(SwanIO):
         p_vortex = op.join(p_case, 'vortex_{0}.nc'.format(code))
         xds_vortex.to_netcdf(p_vortex)
 
-    def make_level_files(self, p_case, wave_event, mesh):
+    def make_level_files(self, p_case, water_level, mesh):
         'Generate event level mesh files (swan compatible)'
 
         # parse pandas time index to swan iso format
         swan_iso_fmt = '%Y%m%d.%H%M'
-        time = pd.to_datetime(wave_event.index).strftime(swan_iso_fmt).values[:]
+        time = pd.to_datetime(water_level.index).strftime(swan_iso_fmt).values[:]
 
         # level variables
-        zeta = wave_event.level.values[:]
-        tide = wave_event.tide.values[:]
+        zeta = water_level.level.values[:]
+        tide = water_level.tide.values[:]
 
         # each time needs 2D (mesh) level 
         mxc = mesh.cg['mxc']  # number mesh x
@@ -664,7 +667,7 @@ class SwanIO_NONSTAT(SwanIO):
             # level list file
             txt += '{0}_{1:06}.dat\n'.format(code, c)
 
-        # waves file path
+        # level file path
         save = op.join(p_case, 'series_{0}.dat'.format(code))
         with open(save, 'w') as f:
             f.write(txt)
@@ -817,30 +820,44 @@ class SwanIO_NONSTAT(SwanIO):
         with open(p_file, 'w') as f:
             f.write(t)
 
-    def build_case(self, case_id, waves_event, storm_track=None, wind_2d=None,
-                   make_waves=True, make_winds=True, make_levels=True,
-                   waves_bnd=['N', 'E', 'W', 'S']):
+    def get_time_swan(self, swan_input):
+        '''
+        gets time array from swan_input (waves, wind, level)
+
+        parse input time to swan iso format
+        '''
+
+        # swan iso format
+        swan_iso_fmt = '%Y%m%d.%H%M'
+
+        # get time from swan input (priority order: waves > winds > levels)
+        if swan_input.waves_activate:
+            time_base = swan_input.waves_series.index
+
+        elif swan_input.wind_mode != None:
+            if isinstance(swan_input.wind_series, pd.DataFrame):
+                time_base = swan_input.wind_series.index
+            elif isinstance(swan_input.wind_series, xr.Dataset):
+                time_base = swan_input.wind_series.time.values[:]
+
+        elif swan_input.level_activate:
+            time_base = swan_input.level_series.index
+
+        # parse pandas time index to swan iso format
+        time_swan = pd.to_datetime(time_base).strftime(swan_iso_fmt).values[:]
+
+        return time_swan
+
+    def build_case(self, case_id, swan_input):
         '''
         Build SWAN NONSTAT case input files for given wave dataset
 
-        case_id  - SWAN case index (int)
-
-        waves_event - waves event time series (pandas.Dataframe)
-        also contains level, tide and wind (not storm track) variables
-        [n x 8] (hs, per, dir, spr, U10, V10, level, tide)
-
-        storm_track - None / storm track time series (pandas.Dataframe)
-        storm_track generated winds have priority over waves_event winds
-        [n x 6] (move, vf, lon, lat, pn, p0)
-
-        wind_2d - list of 2D winds (xarray.Dataset)
-        wind_2d have priority over waves_event winds
-        dims: x, y, time. vars: U10, V10
+        case_id     - SWAN case index (int)
+        swan_input  - SwanInput_NONSTAT instance
         '''
 
-        # parse pandas time index to swan iso format
-        swan_iso_fmt = '%Y%m%d.%H%M'
-        time_swan = pd.to_datetime(waves_event.index).strftime(swan_iso_fmt).values[:]
+        # parse pandas time index to swan iso format (get time from input waves series)
+        time_swan = self.get_time_swan(swan_input)
 
         # project computational and winds_input delta time
         compute_deltc = self.proj.params['compute_deltc']
@@ -854,32 +871,48 @@ class SwanIO_NONSTAT(SwanIO):
         self.proj.mesh_main.export_depth(p_case)  # export depth file
 
         # make water level files
-        if make_levels: self.make_level_files(p_case, waves_event, self.proj.mesh_main)
+        if swan_input.level_activate:
+            self.make_level_files(p_case, swan_input.level_series, self.proj.mesh_main)
 
         # make wave files
-        if make_waves: self.make_wave_files(p_case, waves_event, time_swan, waves_bnd)
+        if swan_input.waves_activate:
+            self.make_wave_files(
+                p_case,
+                swan_input.waves_series,
+                time_swan,
+                swan_input.waves_boundaries,
+            )
+
+        # wind switch
+        wind_activate = False
+        if swan_input.wind_mode != None:
+            wind_activate = True
 
         # make wind files
-        if make_winds:
+        if wind_activate:
 
             # vortex model from storm tracks  //  meshgrid wind
-            if isinstance(storm_track, pd.DataFrame):
-                self.make_vortex_files(p_case, case_id, self.proj.mesh_main, storm_track)
+            if swan_input.wind_mode == 'storm':
+                self.make_vortex_files(
+                    p_case, case_id,
+                    self.proj.mesh_main,
+                    swan_input.wind_series,
+                )
 
                 # optional: override computational/winds dt with storm track attribute 
-                if 'override_dtcomp' in storm_track.attrs:
-                    compute_deltc = storm_track.attrs['override_dtcomp']
-                    wind_deltinp = storm_track.attrs['override_dtcomp']
+                if 'override_dtcomp' in swan_input.wind_series.attrs:
+                    compute_deltc = swan_input.wind_series.attrs['override_dtcomp']
+                    wind_deltinp = swan_input.wind_series.attrs['override_dtcomp']
                     print('CASE {0} - compute_deltc, wind_deltinp override with storm track: {1}'.format(
                         case_id, compute_deltc))
 
             # 2d winds given by user
-            elif isinstance(wind_2d, xr.Dataset):
-                self.make_wind_files_custom(p_case, wind_2d, self.proj.mesh_main)
+            elif swan_input.wind_mode == '2D':
+                self.make_wind_files_mesh(p_case, swan_input.wind_series, self.proj.mesh_main)
 
             # extrapolate waves event U10, V10 to entire mesh
-            else:
-                self.make_wind_files_uniform(p_case, waves_event, self.proj.mesh_main)
+            elif swan_input.wind_mode == 'uniform':
+                self.make_wind_files_uniform(p_case, swan_input.wind_series, self.proj.mesh_main)
 
         # make output points file
         self.make_out_points(op.join(p_case, 'points_out.dat'))
@@ -892,10 +925,10 @@ class SwanIO_NONSTAT(SwanIO):
             self.proj.mesh_main,
             time_swan,
             compute_deltc, wind_deltinp,
-            make_waves = make_waves,
-            make_winds = make_winds,
-            make_levels = make_levels,
-            waves_bnd = waves_bnd
+            make_waves = swan_input.waves_activate,
+            make_winds = wind_activate,
+            make_levels = swan_input.level_activate,
+            waves_bnd = swan_input.waves_boundaries,
         )
 
         # NESTED mesh depth and input (wind, level) files
@@ -904,20 +937,30 @@ class SwanIO_NONSTAT(SwanIO):
             mesh_n.export_depth(p_case)  # export nested depth file
             p_swn = op.join(p_case, mesh_n.fn_input)
 
-            if make_levels:
-                self.make_level_files(p_case, waves_event, mesh_n)
+            if swan_input.level_activate:
+                self.make_level_files(p_case, swan_input.level_series, mesh_n)
 
-            if make_winds:
+            if wind_activate:
 
-                # vortex model from storm tracks  //  meshgrind wind
-                if isinstance(storm_track, pd.DataFrame):
-                    self.make_vortex_files(p_case, case_id, mesh_n, storm_track)
+                # vortex model from storm tracks  //  meshgrid wind
+                if swan_input.wind_mode == 'storm':
+                    self.make_vortex_files(
+                        p_case, case_id,
+                        mesh_n,
+                        swan_input.wind_series,
+                    )
+
                 # 2d winds given by user
-                elif isinstance(wind_2d, xr.Dataset):
-                    # TODO: esto no funcionara, necesario definir el viento en anidada
-                    self.make_wind_files_custom(p_case, wind_2d, self.proj.mesh_main)
-                else:
-                    self.make_wind_files_uniform(p_case, waves_event, mesh_n)
+                elif swan_input.wind_mode == '2D':
+                    # TODO for nested mesh we have to adjust wind_series area to nested mesh
+                    # TODO THIS WILL FAIL
+                    wind_series_nested = swan_input.wind_series
+
+                    self.make_wind_files_mesh(p_case, wind_series_nested, mesh_n)
+
+                # extrapolate waves event U10, V10 to entire mesh
+                elif swan_input.wind_mode == 'uniform':
+                    self.make_wind_files_uniform(p_case, swan_input.wind_series, mesh_n)
 
             # make input_nestX.swn file
             self.make_input(
@@ -925,9 +968,9 @@ class SwanIO_NONSTAT(SwanIO):
                 mesh_n,
                 time_swan,
                 compute_deltc, wind_deltinp,
-                make_waves = make_waves,
-                make_winds = make_winds,
-                make_levels = make_levels,
+                make_waves = swan_input.waves_activate,
+                make_winds = wind_activate,
+                make_levels = swan_input.level_activate,
             )
 
     def outmat2xr(self, p_mat):
@@ -957,6 +1000,19 @@ class SwanIO_NONSTAT(SwanIO):
         # join at times dim
         xds_out = xr.concat(l_times, dim='time')
         xds_out = xds_out.assign_coords(time=dates)
+
+        # TODO investigando vientos
+        #print()
+        #print('xds_out crudo')
+        #print(xds_out)
+
+        #import matplotlib.pyplot as plt
+        #xds_out.isel(time=6).Dir.plot()
+
+        #plt.show()
+
+
+
 
         # join partitions variables (if any)
         xds_out = self.fix_partition_vars(xds_out)

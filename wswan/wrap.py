@@ -94,6 +94,8 @@ d_params_template = {
 }
 
 
+
+
 class SwanMesh(object):
     'SWAN numerical model mesh'
 
@@ -212,6 +214,31 @@ class SwanProject(object):
 
         # update template parameters 
         self.params = {**self.params, **input_params}
+
+
+class SwanInput_NONSTAT(object):
+
+    def __init__(self):
+
+        # waves boundary conditions
+        self.waves_activate = False  # waves files generation switch
+        self.waves_series = None     # waves event time series (hourly)
+                                     # pandas.Dataframe: hs(m), per(s), dir(º), spr(º)
+
+        self.waves_boundaries = ['N', 'E', 'W', 'S']  # waves input boundaries
+
+        # level input
+        self.level_activate = False  # level files generation switch
+        self.level_series = None     # pandas.Dataframe: level(m), tide(m)
+
+
+        # wind input
+        self.wind_mode = None        # wind mode switch: None / 'uniform' / '2D' / 'storm'
+
+        self.wind_series = None      # wind input data
+                                     # - mode 'uniform': pandas.Dataframe: U10, V10 (units: m/s)
+                                     # - mode '2D': xarray.Dataset: dims y(lat), x(lon), time,  vars U10, V10
+                                     # - mode 'storm': pandas.Dataframe: move, vf, vfx, vfy, pn, p0, lon, lat, vmax
 
 
 class SwanWrap(object):
@@ -418,48 +445,21 @@ class SwanWrap_NONSTAT(SwanWrap):
     def __init__(self, swan_proj):
         super().__init__(swan_proj, SwanIO_NONSTAT)
 
-    def build_cases(self, waves_event_list,
-                    storm_track_list=None,
-                    wind_2d_list=None,
-                    make_waves=True, make_winds=True, make_levels=True):
+    def build_cases(self, swan_input_list):
         '''
         generates all files needed for swan non-stationary multi-case execution
 
-        waves_event_list - list waves events time series (pandas.DataFrame)
-        also contains level, tide and wind (not storm track) variables
-        [n x 8] (hs, per, dir, spr, U10, V10, level, tide)
-
-        storm_track_list - list of storm tracks time series (pandas.DataFrame)
-        storm_track generated winds have priority over waves_event winds
-        [n x 6] (move, vf, lon, lat, pn, p0)
-
-        wind_2d_list - list of 2D winds (xarray.Dataset)
-        wind_2d have priority over waves_event winds
-        dims: x, y, time. vars: U10, V10
+        swan_input_list - list of SwanInput_NONSTAT objects
         '''
-
-        # check user input: no storm tracks
-        if storm_track_list == None:
-            storm_track_list = [None] * len(waves_event_list)
-
-        # check user input: no 2D winds 
-        if wind_2d_list == None:
-            wind_2d_list = [None] * len(waves_event_list)
 
         # make main project directory
         self.io.make_project()
 
-        # one non-stationary case for each wave time series
-        for ix, (wds, sds, w2d) in enumerate(
-            zip(waves_event_list, storm_track_list, wind_2d_list)):
+        for ix, s_i in enumerate(swan_input_list):
 
-            # build stat case 
+            # build non-statationary case 
             case_id = '{0:04d}'.format(ix)
-            self.io.build_case(
-                case_id, wds, storm_track=sds, wind_2d=w2d,
-                make_waves=make_waves, make_winds=make_winds,
-                make_levels=make_levels,
-            )
+            self.io.build_case(case_id, s_i)
 
     def extract_output_spec(self, case_ini=None, case_end=None, mesh=None,
                             var_name=None):
