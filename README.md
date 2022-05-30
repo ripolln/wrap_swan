@@ -102,7 +102,7 @@ Copy SWAN binary file to module resources
 - [demo 05 - non-stationary with uniform winds (cartesian)](./scripts/demo_05_nonstat_wind_xy.py): non-stationary with uniform winds (cartesian coordinates) 
 - [demo 06 - non-stationary with uniform winds (spherical)](./scripts/demo_06_nonstat_wind_lonlat.py): non-stationary with uniform winds (spherical coordinates) 
 - [demo 07 - non-stationary with customized 2D wind maps](./scripts/demo_07_nonstat_wind_2d.py): non-stationary with 2D wind maps as input 
-- [demo 08 - non-stationary with waves at boundary segments](./scripts/demo_07_nonstat_wind_2d.py): non-stationary with input waves at user defined boundary segments 
+- [demo 08 - non-stationary with waves at boundary segments](./scripts/demo_08_nonstat_bnd_segments.py): non-stationary with input waves at user defined boundary segments 
 - [notebook - SWAN Vortex Historical](./notebooks/nb_nonstat_vortex.ipynb): non-stationary storm Vortex model simulation from historical storm track
 
 ## Contributors:
