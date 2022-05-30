@@ -16,6 +16,7 @@ sys.path.insert(0, op.join(op.dirname(__file__), '..'))
 # swan wrap module
 from wswan.wrap import SwanProject, SwanMesh, SwanWrap_NONSTAT, SwanInput_NONSTAT
 
+# TODO: programar vientos custom 2D con mallas anidadas
 
 # --------------------------------------
 # data

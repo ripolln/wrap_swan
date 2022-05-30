@@ -231,7 +231,6 @@ st, time_input = historic_track_interpolation(
     ts, dt_interp, wind=ywind,
     great_circle=True)
 
-# TODO: algun problema con el storm track
 print('\ninput storm track')
 print(st)
 
