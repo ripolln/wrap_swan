@@ -204,6 +204,38 @@ def swn_bound_waves_nonstat(proj, waves_bnd):
 
     return t
 
+def swn_bound_segment_waves_nonstat(proj, seg_event, code):
+    '''
+    boundary waves (NONSTAT) .swn block for segment type boundary
+
+    seg_event - dictionary with segment coordinates and spectra parameters
+    '''
+
+    # boundary jonswap and period
+    boundw_jonswap = proj.params['boundw_jonswap']
+    boundw_period = proj.params['boundw_period']
+
+    # segment series filename
+    fn_ss = 'series_segment_{0}.dat'.format(code)
+
+    text_XY = ''
+    for i in range(len(seg_event['X'])):
+        text_XY += '{0} {1} '.format(seg_event['X'][i], seg_event['Y'][i])
+
+    t = ''
+    t += 'BOUND SHAPespec JONswap {0} {1} DSPR DEGR\n'.format(
+        boundw_jonswap, boundw_period)
+
+#    t += "BOUndspec SEGMent {0} {1} CONstant PAR {2} {3} {4} {5}\n".format(
+#            seg_event['mode'], text_XY, 
+#            seg_event['hs'], seg_event['per'], seg_event['dir'], seg_event['dd'])
+
+    t += "BOUndspec SEGMent {0} {1} CONstant FILE '{2}'\n".format(
+            seg_event['mode'], text_XY, fn_ss)
+    t += '$\n'
+
+    return t
+
 def swn_inp_levels_nonstat(proj, mesh, t0_iso, t1_iso):
     'input level files (NONSTAT) .swn block'
 
@@ -492,7 +524,7 @@ class SwanIO_NONSTAT(SwanIO):
             points = np.vstack((x_out,y_out)).T
             np.savetxt(p_file, points, fmt='%.2f')
 
-    def make_wave_files(self, p_case, waves_event, time, bnd):
+    def make_wave_boundary_files(self, p_case, waves_event, time, bnd):
         'Generate event wave files (swan compatible)'
 
         # wave variables
@@ -515,6 +547,31 @@ class SwanIO_NONSTAT(SwanIO):
         np.savetxt(save, data, header='TPAR', comments='', fmt='%8.4f %2.3f %2.3f %3.2f %3.1f')
         for i in bnd:
             su.copyfile(save, op.join(p_case, 'series_waves_{0}.dat'.format(i)))
+
+    def make_wave_segment_files(self, p_case, segment, time, code):
+        'Generate event wave files for segment boundary input (swan compatible)'
+
+        # TODO: esta entrando "time_swan" pero el evento ya lleva su propio
+        # time
+
+        # wave variables
+        hs = segment['waves_event'].hs.values[:]
+        per = segment['waves_event'].per.values[:]
+        direc = segment['waves_event'].dir.values[:]
+        spr = segment['waves_event'].spr.values[:]
+
+        # csv file 
+        num_data = len(time)
+        data = np.zeros((num_data, 5))
+        data[:, 0] = time
+        data[:, 1] = hs
+        data[:, 2] = per
+        data[:, 3] = direc
+        data[:, 4] = spr
+
+        # Copy file for all boundaries
+        save = op.join(p_case, 'series_segment_{0}.dat'.format(code))
+        np.savetxt(save, data, header='TPAR', comments='', fmt='%8.4f %2.3f %2.3f %3.2f %3.1f')
 
     def make_wind_files_uniform(self, p_case, wind_series, mesh):
         '''
@@ -707,7 +764,10 @@ class SwanIO_NONSTAT(SwanIO):
                    time, compute_deltc, wind_deltinp=None,
                    ttl_run='',
                    make_waves=True, make_winds=True, make_levels=True,
-                   waves_bnd=['N', 'E', 'W', 'S']):
+                   waves_mode='boundary',
+                   waves_bnd=['N', 'E', 'W', 'S'],
+                   waves_segments=[],
+                  ):
         '''
         Writes input.swn file from waves event for non-stationary execution
 
@@ -762,7 +822,12 @@ class SwanIO_NONSTAT(SwanIO):
         # MAIN mesh - boundary waves
         if not mesh.is_nested:
             if make_waves:
-                t += swn_bound_waves_nonstat(self.proj, waves_bnd)
+                if waves_mode == 'boundary':
+                    t += swn_bound_waves_nonstat(self.proj, waves_bnd)
+                elif waves_mode == 'segments':
+                    for c, segm in enumerate(waves_segments):
+                        code = '{0:04d}'.format(c)
+                        t += swn_bound_segment_waves_nonstat(self.proj, segm, code)
 
         # NESTED mesh - nested waves
         else:
@@ -827,12 +892,18 @@ class SwanIO_NONSTAT(SwanIO):
         parse input time to swan iso format
         '''
 
+        # TODO puede que esta funcion no sea necesaria, repasar los tiempos de
+        # oleaje, viento, level, y del archivo input.swn
+
         # swan iso format
         swan_iso_fmt = '%Y%m%d.%H%M'
 
         # get time from swan input (priority order: waves > winds > levels)
         if swan_input.waves_activate:
-            time_base = swan_input.waves_series.index
+            if swan_input.waves_mode == 'boundary':
+                time_base = swan_input.waves_series.index
+            elif swan_input.waves_mode == 'segments':
+                time_base = swan_input.waves_segments[0]['waves_event'].index
 
         elif swan_input.wind_mode != None:
             if isinstance(swan_input.wind_series, pd.DataFrame):
@@ -858,6 +929,8 @@ class SwanIO_NONSTAT(SwanIO):
 
         # parse pandas time index to swan iso format (get time from input waves series)
         time_swan = self.get_time_swan(swan_input)
+        # TODO revisar este time_swan, puede que este ligado solo al oleaje y
+        # no haga falta aqui
 
         # project computational and winds_input delta time
         compute_deltc = self.proj.params['compute_deltc']
@@ -876,12 +949,26 @@ class SwanIO_NONSTAT(SwanIO):
 
         # make wave files
         if swan_input.waves_activate:
-            self.make_wave_files(
-                p_case,
-                swan_input.waves_series,
-                time_swan,
-                swan_input.waves_boundaries,
-            )
+
+            # boundary waves
+            if swan_input.waves_mode == 'boundary':
+                self.make_wave_boundary_files(
+                    p_case,
+                    swan_input.waves_series,
+                    time_swan,
+                    swan_input.waves_boundaries,
+                )
+
+            # segment waves
+            elif swan_input.waves_mode == 'segments':
+                for c, segment in enumerate(swan_input.waves_segments):
+                    # TODO: revisar "time_swan". puede no ser necesario aqui
+                    self.make_wave_segment_files(
+                        p_case,
+                        segment,
+                        time_swan,
+                        code = '{0:04d}'.format(c),
+                    )
 
         # wind switch
         wind_activate = False
@@ -926,9 +1013,11 @@ class SwanIO_NONSTAT(SwanIO):
             time_swan,
             compute_deltc, wind_deltinp,
             make_waves = swan_input.waves_activate,
+            waves_mode = swan_input.waves_mode,
             make_winds = wind_activate,
             make_levels = swan_input.level_activate,
             waves_bnd = swan_input.waves_boundaries,
+            waves_segments = swan_input.waves_segments,
         )
 
         # NESTED mesh depth and input (wind, level) files
@@ -953,6 +1042,7 @@ class SwanIO_NONSTAT(SwanIO):
                 # 2d winds given by user
                 elif swan_input.wind_mode == '2D':
                     # TODO for nested mesh we have to adjust wind_series area to nested mesh
+                    print('wind_2d + nested mesh not implemented')
                     # TODO THIS WILL FAIL
                     wind_series_nested = swan_input.wind_series
 
@@ -1000,19 +1090,6 @@ class SwanIO_NONSTAT(SwanIO):
         # join at times dim
         xds_out = xr.concat(l_times, dim='time')
         xds_out = xds_out.assign_coords(time=dates)
-
-        # TODO investigando vientos
-        #print()
-        #print('xds_out crudo')
-        #print(xds_out)
-
-        #import matplotlib.pyplot as plt
-        #xds_out.isel(time=6).Dir.plot()
-
-        #plt.show()
-
-
-
 
         # join partitions variables (if any)
         xds_out = self.fix_partition_vars(xds_out)

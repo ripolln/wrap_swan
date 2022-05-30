@@ -220,12 +220,27 @@ class SwanInput_NONSTAT(object):
 
     def __init__(self):
 
-        # waves boundary conditions
+        # waves input
         self.waves_activate = False  # waves files generation switch
+        self.waves_mode = 'boundary' # 'boundary' (default) / 'segments'
+
+        # - mode: boundary
         self.waves_series = None     # waves event time series (hourly)
                                      # pandas.Dataframe: hs(m), per(s), dir(º), spr(º)
 
         self.waves_boundaries = ['N', 'E', 'W', 'S']  # waves input boundaries
+
+        # - mode: segments
+        self.waves_segments = []     # list of segment boundary conditions
+
+        # segment format:
+        # segment = {
+        #    'waves_event': we,      # pandas.Dataframe: hs(m), per(s), dir(º), spr(º)
+        #    'mode': 'IJ',           # 'XY' (coordinates) or 'IJ' (grid index)
+        #    'X': [mxc_0, mxc_1],    # x/lon coordinate or i index
+        #    'Y': [myc_0, myc_1],    # y/lat coordinate or j index
+        #}
+
 
         # level input
         self.level_activate = False  # level files generation switch
