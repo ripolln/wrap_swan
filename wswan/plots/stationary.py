@@ -95,7 +95,7 @@ def scatter_maps(xds_out, var_list=[], n_cases=None, n_cols=None, n_rows=None,
 
     # figure size
     if figsize == None:
-        figsize = (_fsize*_faspect, _fsize*_faspect),
+        figsize = (_fsize*_faspect, _fsize*_faspect)
 
     # allowed vars
     avs = ['Hsig', 'Tm02', 'Dspr', 'TPsmoo', 'Dir', 'Tp']
