@@ -26,9 +26,9 @@ pages:
     # Create the public directory
     - rm -rf public
     - mkdir public
-    #- mkdir -p public/docs
-    #- mkdir -p public/coverage
-    #- mkdir -p public/docs/apiwp
+    - mkdir -p public/docs
+    - mkdir -p public/coverage
+    - mkdir -p public/docs/apiwp
     # build jupyter book
     - pip install -U "jupyter-book"
     - jupyter-book build ./
