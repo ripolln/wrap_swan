@@ -23,7 +23,7 @@ before_script:
 
 pages:
   script:
-    - pip install -U "jupyter-book==0.11.3"
+    - pip install -U "jupyter-book"
     - jupyter-book build ./
     - mv ./_build/html/ public/
   artifacts:
